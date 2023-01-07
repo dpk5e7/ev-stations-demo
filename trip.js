@@ -4,12 +4,19 @@ const txtStartAddress = document.querySelector("#txtStartAddress");
 const txtDestinationAddress = document.querySelector("#txtDestinationAddress");
 const txtMiles = document.querySelector("#txtMiles");
 const txtLimit = document.querySelector("#txtLimit");
-const rdbStationsNearestCoordinates = document.querySelector("#rdbStationsNearestCoordinates");
-const rdbStationsNearbyRoute = document.querySelector("#rdbStationsNearbyRoute");
+const txtDistance = document.querySelector("#txtDistance");
+const rdbStationsNearestCoordinates = document.querySelector(
+  "#rdbStationsNearestCoordinates"
+);
+const rdbStationsNearbyRoute = document.querySelector(
+  "#rdbStationsNearbyRoute"
+);
 const instructions = document.querySelector("#instructions");
 
 let map;
 let mapMarkers = [];
+
+let stationCount = 0;
 
 // Event Listeners
 btnDirections.addEventListener("click", getDirections);
@@ -152,6 +159,8 @@ async function fetchDirections(start, destination) {
 async function getDirections(event) {
   event.preventDefault();
 
+  stationCount = 0;
+
   const start = document.querySelector("#txtStartAddress").value.trim();
   const destination = document
     .querySelector("#txtDestinationAddress")
@@ -212,6 +221,7 @@ async function getDirections(event) {
     await clearMarkers();
 
     const stopDistance = parseInt(txtMiles.value);
+    const distanceFrom = parseInt(txtDistance.value);
 
     let waypoints = route;
 
@@ -230,10 +240,8 @@ async function getDirections(event) {
     }
     //console.log(`Stops: ${stops}`);
 
-    await printTextDirections(directions.routes[0], stopDistance, stops.length);
-
     if (rdbStationsNearbyRoute.checked) {
-      await setStationMarkersNearRoute(route, 5, txtLimit.value);
+      await setStationMarkersNearRoute(route, distanceFrom, txtLimit.value);
     }
 
     // Set the marker for the start
@@ -241,7 +249,11 @@ async function getDirections(event) {
 
     for (let i = 0; i < stops.length; i++) {
       if (rdbStationsNearestCoordinates.checked) {
-        await setStationMarkersNearCoordinates(...waypoints[stops[i]], 25, 10);
+        await setStationMarkersNearCoordinates(
+          ...waypoints[stops[i]],
+          distanceFrom,
+          25
+        );
       }
 
       await setMarker(
@@ -253,7 +265,11 @@ async function getDirections(event) {
 
     if (rdbStationsNearestCoordinates.checked) {
       // Drop charging stations near the end of the route
-      await setStationMarkersNearCoordinates(...destinationCoordinates, 5, 10);
+      await setStationMarkersNearCoordinates(
+        ...destinationCoordinates,
+        distanceFrom,
+        10
+      );
     }
 
     // Set the markers for the destination
@@ -262,6 +278,8 @@ async function getDirections(event) {
       destinationCoordinates,
       "end-point"
     );
+
+    await printTextDirections(directions.routes[0], stopDistance, stops.length);
   }
 }
 
@@ -276,7 +294,7 @@ async function printTextDirections(data, stopDistance, stops) {
     0
   )} miles<br>Trip Duration: ${duration}<br>Recommended Stopping Distance: ${stopDistance.toFixed(
     0
-  )} miles<br>Number of Stops: ${stops}</strong></p><ol>${tripInstructions}</ol>`;
+  )} miles<br>Number of Stops: ${stops}<br>Number of Stations Found: ${stationCount}</strong></p><ol>${tripInstructions}</ol>`;
 }
 
 // Modified from https://stackoverflow.com/questions/27928/calculate-distance-between-two-latitude-longitude-points-haversine-formula
@@ -335,11 +353,15 @@ async function setStationMarkers(stationData) {
 async function setStationMarkersNearCoordinates(lon, lat, radius, limit) {
   const stationData = await getStationData(lon, lat, radius, limit);
   await setStationMarkers(stationData);
+
+  stationCount += stationData.length;
 }
 
 async function setStationMarkersNearRoute(route, distance, limit) {
   const stationData = await getStationDataNearRoute(route, distance, limit);
   await setStationMarkers(stationData);
+
+  stationCount += stationData.length;
 }
 
 async function setMarker(text, coordinates, image) {
